@@ -1,5 +1,8 @@
 # OpenCode Go Usage (Windows)
 
+> Repo: **https://github.com/hprmn/opencode-go-usage** — source lengkap, plus
+> `dist\OpenCodeUsage.exe` yang siap dipakai (tanpa build).
+
 Aplikasi desktop kecil untuk memantau pemakaian kuota **OpenCode Go** langsung dari
 Windows, tanpa membuka browser. Cukup tempel API key sekali, lalu kuota 5 jam,
 mingguan, dan bulanan selalu terlihat di jendela kecil atau di system tray.
