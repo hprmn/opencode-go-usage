@@ -1,0 +1,12 @@
+# Hasil build yang tidak perlu masuk repo
+dist/UiHarness.exe
+*.pdb
+*.obj
+
+# Junk OS / editor
+Thumbs.db
+desktop.ini
+.DS_Store
+.vs/
+.vscode/
+*.user
