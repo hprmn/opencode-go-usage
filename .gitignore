@@ -1,5 +1,6 @@
 # Hasil build yang tidak perlu masuk repo
 dist/UiHarness.exe
+dist/*.log
 *.pdb
 *.obj
 

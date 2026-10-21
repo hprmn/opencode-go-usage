@@ -11,6 +11,9 @@ namespace OpenCodeUsage
         public string ApiKey = "";
         public int RefreshSeconds = 60;
         public bool AlwaysOnTop = false;
+        public bool BubbleEnabled = true;
+        public int BubbleX = -1;
+        public int BubbleY = -1;
 
         /// <summary>Test hook: when set, config lives here instead of %APPDATA%.</summary>
         internal static string OverrideDir = null;
@@ -58,6 +61,14 @@ namespace OpenCodeUsage
 
                 JsonNode top = Jx.Prop(root, "alwaysOnTop");
                 if (top != null && top.Kind == JsonKind.Bool) cfg.AlwaysOnTop = top.BoolValue;
+
+                JsonNode bubble = Jx.Prop(root, "bubbleEnabled");
+                if (bubble != null && bubble.Kind == JsonKind.Bool) cfg.BubbleEnabled = bubble.BoolValue;
+
+                double? bx = Jx.Number(Jx.Prop(root, "bubbleX"));
+                if (bx.HasValue) cfg.BubbleX = (int)bx.Value;
+                double? by = Jx.Number(Jx.Prop(root, "bubbleY"));
+                if (by.HasValue) cfg.BubbleY = (int)by.Value;
             }
             catch
             {
@@ -83,6 +94,9 @@ namespace OpenCodeUsage
                 sb.Append("{\n");
                 sb.Append("  \"refreshSeconds\": ").Append(RefreshSeconds).Append(",\n");
                 sb.Append("  \"alwaysOnTop\": ").Append(AlwaysOnTop ? "true" : "false").Append(",\n");
+                sb.Append("  \"bubbleEnabled\": ").Append(BubbleEnabled ? "true" : "false").Append(",\n");
+                sb.Append("  \"bubbleX\": ").Append(BubbleX).Append(",\n");
+                sb.Append("  \"bubbleY\": ").Append(BubbleY).Append(",\n");
                 sb.Append("  \"apiKeyProtected\": \"").Append(encrypted).Append("\"\n");
                 sb.Append("}\n");
                 File.WriteAllText(FilePath, sb.ToString(), new UTF8Encoding(false));

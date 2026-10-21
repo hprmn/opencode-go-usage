@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -10,6 +10,7 @@ namespace OpenCodeUsage
     internal static class Program
     {
         private const string MutexName = "Local\\OpenCodeUsageWin_SingleInstance";
+        private const string ShowEventName = "Local\\OpenCodeUsageWin_Show";
 
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern bool AttachConsole(int processId);
@@ -109,15 +110,54 @@ namespace OpenCodeUsage
             {
                 if (!createdNew)
                 {
-                    MessageBox.Show("OpenCode Go Usage sudah berjalan. Cek ikonnya di system tray.", "OpenCode Go Usage",
-                        MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    // Instans pertama mungkin sedang tersembunyi di tray: minta dia muncul.
+                    if (!SignalExistingInstance(ShowEventName))
+                    {
+                        MessageBox.Show("OpenCode Go Usage sudah berjalan. Klik ikonnya di system tray untuk membuka.",
+                            "OpenCode Go Usage", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
                     return 0;
                 }
 
-                Application.Run(new MainForm(cfg, opt));
+                EventWaitHandle showEvent = null;
+                try
+                {
+                    showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
+                }
+                catch
+                {
+                    showEvent = null;
+                }
+
+                Application.Run(new MainForm(cfg, opt, showEvent));
                 GC.KeepAlive(mutex);
+                if (showEvent != null) showEvent.Close();
             }
             return 0;
+        }
+
+        private static bool SignalExistingInstance(string eventName)
+        {
+            for (int attempt = 0; attempt < 20; attempt++)
+            {
+                try
+                {
+                    using (EventWaitHandle handle = EventWaitHandle.OpenExisting(eventName))
+                    {
+                        handle.Set();
+                        return true;
+                    }
+                }
+                catch (WaitHandleCannotBeOpenedException)
+                {
+                    System.Threading.Thread.Sleep(100);
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+            return false;
         }
 
         private static TextWriter OpenConsole()

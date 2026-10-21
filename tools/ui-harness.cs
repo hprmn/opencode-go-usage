@@ -1,4 +1,4 @@
-// Dev-only harness: renders each window on its own and captures a screenshot.
+﻿// Dev-only harness: renders each window on its own and captures a screenshot.
 // Compile with tools\build-harness.ps1.
 // Run: UiHarness.exe <outDir> <settings|json|main|main-live|error|nokey|config>
 using System;
@@ -47,14 +47,22 @@ namespace OpenCodeUsage
             {
                 RuntimeOptions opt = new RuntimeOptions();
                 opt.Demo = true;
-                form = new MainForm(cfg, opt);
+                form = new MainForm(cfg, opt, null);
                 file = "harness-main.png";
+            }
+            else if (which == "bubble")
+            {
+                BubbleForm bubble = new BubbleForm();
+                bubble.SetSnapshot(UsageSnapshot.Parse(DemoData.Build()));
+                bubble.Location = new Point(300, 300);
+                form = bubble;
+                file = "harness-bubble.png";
             }
             else if (which == "main-live")
             {
                 RuntimeOptions opt = new RuntimeOptions();
                 opt.BaseUrl = "http://127.0.0.1:18777/zen/go";
-                form = new MainForm(cfg, opt);
+                form = new MainForm(cfg, opt, null);
                 file = "harness-main-live.png";
                 delay = 3000;
             }
@@ -62,7 +70,7 @@ namespace OpenCodeUsage
             {
                 RuntimeOptions opt = new RuntimeOptions();
                 opt.BaseUrl = "http://127.0.0.1:18772/zen/go";
-                form = new MainForm(cfg, opt);
+                form = new MainForm(cfg, opt, null);
                 file = "harness-error.png";
                 delay = 3000;
             }
@@ -70,7 +78,7 @@ namespace OpenCodeUsage
             {
                 cfg.ApiKey = "";
                 RuntimeOptions opt = new RuntimeOptions();
-                form = new MainForm(cfg, opt);
+                form = new MainForm(cfg, opt, null);
                 file = "harness-nokey.png";
                 delay = 1800;
             }

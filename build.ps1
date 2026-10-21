@@ -1,7 +1,8 @@
-# Build OpenCodeUsage.exe with the in-box .NET Framework compiler (no SDK needed).
+﻿# Build OpenCodeUsage.exe with the in-box .NET Framework compiler (no SDK needed).
 param(
     [switch]$ForceIcon,
-    [switch]$Clean
+    [switch]$Clean,
+    [switch]$Sign
 )
 
 $ErrorActionPreference = 'Stop'
@@ -52,6 +53,10 @@ $compilerArgs = @(
 Write-Host ("kompilasi {0} file -> {1}" -f $sources.Count, $exe)
 & $csc $compilerArgs
 if ($LASTEXITCODE -ne 0) { throw "Kompilasi gagal (exit code $LASTEXITCODE)." }
+
+if ($Sign) {
+    & (Join-Path $root 'tools\sign-app.ps1') -Exe $exe -Trust
+}
 
 $info = Get-Item $exe
 Write-Host ("OK  {0}  ({1:N0} bytes)  {2}" -f $info.Name, $info.Length, $info.LastWriteTime)

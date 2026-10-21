@@ -1,7 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -12,6 +13,7 @@ namespace OpenCodeUsage
         private readonly AppConfig _cfg;
         private readonly RuntimeOptions _opt;
         private readonly UsageClient _client;
+        private readonly EventWaitHandle _activateEvent;
 
         private readonly System.Windows.Forms.Timer _refreshTimer = new System.Windows.Forms.Timer();
         private readonly System.Windows.Forms.Timer _tickTimer = new System.Windows.Forms.Timer();
@@ -21,6 +23,8 @@ namespace OpenCodeUsage
 
         private NotifyIcon _tray;
         private ToolStripMenuItem _trayTopMostItem;
+        private ToolStripMenuItem _trayBubbleItem;
+        private BubbleForm _bubble;
         private bool _exiting;
         private bool _trayHintShown;
         private bool _busy;
@@ -41,10 +45,11 @@ namespace OpenCodeUsage
         private TableLayoutPanel _cards;
         private Label _emptyLabel;
 
-        public MainForm(AppConfig cfg, RuntimeOptions opt)
+        public MainForm(AppConfig cfg, RuntimeOptions opt, EventWaitHandle activateEvent)
         {
             _cfg = cfg;
             _opt = opt;
+            _activateEvent = activateEvent;
             _client = new UsageClient(opt.BaseUrl, opt.TimeoutMs);
 
             BuildUi();
@@ -220,7 +225,6 @@ namespace OpenCodeUsage
             try { _tray.Icon = Ui.AppIcon(); }
             catch { _tray.Icon = SystemIcons.Application; }
             _tray.Text = "OpenCode Go \u00B7 memuat";
-            _tray.Visible = true;
 
             ContextMenuStrip menu = new ContextMenuStrip();
             menu.BackColor = Ui.Card;
@@ -240,6 +244,11 @@ namespace OpenCodeUsage
                 _cfg.Save();
             };
             menu.Items.Add(_trayTopMostItem);
+
+            _trayBubbleItem = new ToolStripMenuItem("Bubble di desktop");
+            _trayBubbleItem.CheckOnClick = false;
+            _trayBubbleItem.Click += delegate { ToggleBubble(); };
+            menu.Items.Add(_trayBubbleItem);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("Keluar", null, delegate { ExitApp(); });
 
@@ -251,13 +260,63 @@ namespace OpenCodeUsage
         {
             TopMost = _cfg.AlwaysOnTop;
             if (_trayTopMostItem != null) _trayTopMostItem.Checked = _cfg.AlwaysOnTop;
+            if (_trayBubbleItem != null) _trayBubbleItem.Checked = _cfg.BubbleEnabled;
             _refreshTimer.Interval = Math.Max(15, _cfg.RefreshSeconds) * 1000;
+        }
+
+        private void ShowBubble()
+        {
+            if (_bubble == null)
+            {
+                _bubble = new BubbleForm();
+                _bubble.OpenRequested += delegate { RestoreFromTray(); };
+                _bubble.RefreshRequested += delegate { BeginRefresh(); };
+                _bubble.HideRequested += delegate { HideBubble(); };
+                _bubble.ExitRequested += delegate { ExitApp(); };
+                _bubble.Moved += delegate
+                {
+                    _cfg.BubbleX = _bubble.Location.X;
+                    _cfg.BubbleY = _bubble.Location.Y;
+                    _cfg.Save();
+                };
+                _bubble.RestorePosition(_cfg.BubbleX, _cfg.BubbleY);
+                if (_lastGood != null) _bubble.SetSnapshot(_lastGood);
+            }
+
+            _bubble.Show();
+            _bubble.BringToFront();
+            _cfg.BubbleEnabled = true;
+            if (_trayBubbleItem != null) _trayBubbleItem.Checked = true;
+        }
+
+        private void HideBubble()
+        {
+            if (_bubble != null) _bubble.Hide();
+            _cfg.BubbleEnabled = false;
+            if (_trayBubbleItem != null) _trayBubbleItem.Checked = false;
+            _cfg.Save();
+        }
+
+        private void ToggleBubble()
+        {
+            if (_bubble != null && _bubble.Visible) HideBubble();
+            else ShowBubble();
         }
 
         // ---------------------------------------------------------------- flow
 
         private void OnShown(object sender, EventArgs e)
         {
+            // NotifyIcon lebih andal kalau diaktifkan setelah jendela benar-benar tampil.
+            if (_tray != null)
+            {
+                try { _tray.Visible = true; }
+                catch { }
+            }
+            StartActivationListener();
+
+            if (_cfg.BubbleEnabled) ShowBubble();
+
             if (_opt.Demo)
             {
                 _subtitleMode = "demo";
@@ -409,6 +468,7 @@ namespace OpenCodeUsage
             EnsureCards(snapshot);
             _lastGood = snapshot;
             UpdateTrayText(snapshot, false);
+            if (_bubble != null && _bubble.Visible) _bubble.SetSnapshot(snapshot);
         }
 
         private void EnsureCards(UsageSnapshot snapshot)
@@ -548,6 +608,7 @@ namespace OpenCodeUsage
                 if (!form.Saved) return;
                 _cfg.Save();
                 ApplyConfig();
+                if (_cfg.BubbleEnabled) ShowBubble(); else HideBubble();
                 BeginRefresh();
             }
         }
@@ -599,6 +660,35 @@ namespace OpenCodeUsage
             }
         }
 
+        private void StartActivationListener()
+        {
+            if (_activateEvent == null) return;
+
+            Thread thread = new Thread(delegate()
+            {
+                while (true)
+                {
+                    try
+                    {
+                        if (!_activateEvent.WaitOne()) continue;
+                        if (IsDisposed) return;
+                        BeginInvoke((MethodInvoker)delegate { RestoreFromTray(); });
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        return;
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        return;
+                    }
+                }
+            });
+            thread.IsBackground = true;
+            thread.Name = "OpenCodeUsage-activate";
+            thread.Start();
+        }
+
         private void HideToTray()
         {
             Hide();
@@ -644,6 +734,11 @@ namespace OpenCodeUsage
             }
             _refreshTimer.Stop();
             _tickTimer.Stop();
+            if (_bubble != null)
+            {
+                _bubble.Dispose();
+                _bubble = null;
+            }
             base.OnFormClosing(e);
         }
 

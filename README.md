@@ -60,34 +60,73 @@ Dialog pengaturan dan lihat JSON:
 Tidak perlu Python, Node, atau runtime tambahan: Windows 10/11 sudah punya
 .NET Framework 4.8 yang dipakai aplikasi ini.
 
-> Aplikasi hanya berjalan satu instance. Kalau dijalankan lagi, muncul pemberitahuan
-> bahwa aplikasi sudah ada di system tray.
+> Aplikasi hanya berjalan satu instance. Kalau dijalankan lagi, jendela yang sedang
+> tersembunyi akan dimunculkan kembali (tidak ada instance kedua).
+
+### Bubble di desktop
+
+![Bubble](docs/screenshot-bubble.png)
+
+Bubble adalah jendela kecil tanpa bingkai yang selalu di atas, berisi tiga bar kuota:
+
+- **geser** dengan klik-kiri lalu tarik � posisinya diingat di config;
+- **klik dua kali** untuk membuka dashboard;
+- **klik kanan** untuk menu: Buka dashboard, Perbarui sekarang, Sembunyikan bubble, Keluar;
+- bisa dimatikan/dinyalakan lewat **Pengaturan ? "Bubble kecil di desktop"** atau menu tray.
+
+Bubble sengaja dibuat karena ikon system tray tidak selalu bisa didaftarkan (lihat catatan
+di bagian pemecahan masalah), sehingga kuota tetap terlihat tanpa bergantung pada tray.
+
+> **Catatan tray:** di sebagian mesin, Windows tidak mencatat ikon tray aplikasi ini
+> (bubble tetap muncul dan aplikasi tetap bisa dibuka dengan menjalankannya lagi).
+> Fitur tray dipertahankan untuk mesin yang mendukungnya.
 
 ### Kalau muncul "Windows protected your PC"
 
-Jendela biru SmartScreen itu **bukan virus**. Windows menandainya karena `.exe` ini
-tidak ditandatangani secara digital dan berasal dari unduhan (ada tanda *Mark of the
-Web*). Tiga cara menghilangkannya, pilih salah satu:
+Jendela biru SmartScreen itu **bukan virus**. Pemicunya: `.exe` belum ditandatangani
+digital, dan file hasil unduhan membawa tanda *Mark of the Web* (MOTW). Kalau bagian
+**Publisher** tertulis *Unknown publisher*, artinya file itu tidak punya tanda tangan
+Authenticode — bukan berarti isinya berbeda.
 
-1. Klik **More info** → **Run anyway** (cukup sekali per file).
-2. Hapus penanda unduhannya, lalu jalankan lagi:
+Cara menghilangkannya, pilih salah satu:
+
+1. Jalankan skrip bantu yang sekaligus membersihkan MOTW dan menandatangani file:
    ```powershell
-   Unblock-File -Path .\OpenCodeUsage.exe
+   powershell -ExecutionPolicy Bypass -File .\tools\fix-smartscreen.ps1 -Sign
    ```
-   (atau klik kanan file → Properties → centang **Unblock** → OK)
-3. Build sendiri dari sumber (lihat [Build dari sumber](#build-dari-sumber)).
-   Hasil build lokal tidak pernah memicu SmartScreen.
+   Skrip mencari `OpenCodeUsage*.exe` di Downloads/Desktop/Documents/Temp/`dist`.
+   Kalau file-mu di tempat lain: `-Path 'C:\folder\OpenCodeUsage.exe'`.
+2. Manual: hapus penanda unduhan → klik kanan file → Properties → centang **Unblock** → OK,
+   atau `Unblock-File -Path .\OpenCodeUsage.exe`.
+3. Klik **More info** → **Run anyway** (cukup sekali per file).
+4. Build sendiri dari sumber (lihat [Build dari sumber](#build-dari-sumber)) — hasil
+   build lokal tidak membawa MOTW.
 
-Cek sidik jari file sebelum dipakai:
+`dist\OpenCodeUsage.exe` di repo ini sudah ditandatangani dengan sertifikat
+**self-signed** (`CN=Hadi Permana`), sehingga di PC pemiliknya publisher tampil sebagai
+*Hadi Permana* dan sertifikatnya dipercaya. Di PC lain, sertifikat itu belum dipercaya,
+jadi Windows tetap menampilkan peringatan sampai file di-unblock atau kamu menandatangani
+ulang dengan sertifikatmu sendiri:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\sign-app.ps1 -Trust
+```
+
+Cek sidik jari dan status tanda tangan:
 
 ```powershell
 Get-FileHash .\OpenCodeUsage.exe -Algorithm SHA256
-# EB87D6C73FC0CA84DC0F855A875074B09B541F0DF1AE7E0F7FC494F9C23F818E
+# 01EF04291E6A43D388F3EAF9CBCF2B8D60A3D6745AD061C49E36E043431CE5FF  (build yang ada di repo, sudah ditandatangani)
+
+Get-AuthenticodeSignature .\OpenCodeUsage.exe | Format-List Status, StatusMessage
 ```
 
-Kalau hash-nya sama dengan di atas, isinya persis file yang dihasilkan `build.ps1`.
-(SmartScreen hilang permanen hanya kalau `.exe` ditandatangani dengan sertifikat
-code-signing berbayar — untuk aplikasi pribadi, langkah 1–3 sudah cukup.)
+> Catatan: hash di atas berlaku untuk file yang ada di repo. Kalau kamu menjalankan
+> `build.ps1` sendiri, hash-nya berubah karena tanda tangan ikut berubah (build baru
+> belum ditandatangani sampai kamu jalankan `build.ps1 -Sign` atau `sign-app.ps1`).
+> Peringatan SmartScreen hilang untuk semua orang hanya kalau `.exe` ditandatangani
+> dengan sertifikat code-signing dari CA berbayar (OV/EV); untuk pemakaian pribadi,
+> langkah 1–3 sudah cukup.
 
 ## Mengatur API key
 
@@ -197,6 +236,7 @@ Syarat: Windows + .NET Framework 4.x (compiler `csc.exe` sudah ada di
 ```powershell
 powershell -ExecutionPolicy Bypass -File build.ps1            # -> dist\OpenCodeUsage.exe
 powershell -ExecutionPolicy Bypass -File build.ps1 -ForceIcon  # buat ulang app.ico
+powershell -ExecutionPolicy Bypass -File build.ps1 -Sign       # build + tanda tangan (self-signed)
 ```
 
 `build.ps1` membuat `app.ico` (multi-ukuran 16–256 px, digambar oleh
@@ -215,7 +255,8 @@ opencode-usage\
 ├─ docs\                     # screenshot
 ├─ src\
 │  ├─ Program.cs             # entry point, mode CLI, single instance
-│  ├─ MainForm.cs            # jendela utama, tray, refresh, tombol
+│  ├─ MainForm.cs            # jendela utama, tray, bubble, refresh, tombol
+│  ├─ BubbleForm.cs          # bubble kecil selalu-di-atas di desktop
 │  ├─ UsageCard.cs           # kartu per jendela kuota
 │  ├─ SettingsForm.cs        # dialog pengaturan + tes koneksi
 │  ├─ RawJsonForm.cs         # dialog lihat/salin JSON
@@ -227,6 +268,8 @@ opencode-usage\
 │  └─ DemoData.cs            # payload contoh untuk --demo
 └─ tools\
    ├─ make-icon.ps1          # generator app.ico
+   ├─ sign-app.ps1           # tanda tangan Authenticode (self-signed atau PFX)
+   ├─ fix-smartscreen.ps1    # hapus Mark of the Web + tanda tangan file
    ├─ mock-server.ps1        # server tiruan endpoint usage untuk pengujian
    ├─ ui-harness.cs          # harness screenshot tiap jendela (dev)
    └─ build-harness.ps1      # kompilasi UiHarness.exe (dev)

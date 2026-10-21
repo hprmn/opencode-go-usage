@@ -18,6 +18,7 @@ namespace OpenCodeUsage
         private Segmented _interval;
         private ToggleSwitch _topMost;
         private ToggleSwitch _autoStart;
+        private ToggleSwitch _bubble;
         private Button _testButton;
         private Button _saveButton;
         private Button _cancelButton;
@@ -46,7 +47,7 @@ namespace OpenCodeUsage
             BackColor = Ui.Bg;
             ForeColor = Ui.Text;
             Font = Ui.Font(9f, FontStyle.Regular);
-            ClientSize = new Size(456, 344);
+            ClientSize = new Size(456, 376);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
@@ -125,13 +126,20 @@ namespace OpenCodeUsage
             _autoStart.SetBounds(400, 209, 38, 20);
             Controls.Add(_autoStart);
 
+            Label bubbleLabel = MakeLabel("Bubble kecil di desktop", 244, Ui.Text, 9f);
+            Controls.Add(bubbleLabel);
+
+            _bubble = new ToggleSwitch();
+            _bubble.SetBounds(400, 241, 38, 20);
+            Controls.Add(_bubble);
+
             Panel separator = new Panel();
             separator.BackColor = Ui.Border;
-            separator.SetBounds(18, 246, 420, 1);
+            separator.SetBounds(18, 278, 420, 1);
             Controls.Add(separator);
 
             _testButton = Ui.Button("Tes koneksi", 110);
-            _testButton.SetBounds(18, 258, 110, 30);
+            _testButton.SetBounds(18, 290, 110, 30);
             _testButton.Margin = new Padding(0);
             _testButton.Click += delegate { RunTest(); };
             Controls.Add(_testButton);
@@ -139,7 +147,7 @@ namespace OpenCodeUsage
             _testResult = new Label();
             _testResult.AutoSize = false;
             _testResult.AutoEllipsis = true;
-            _testResult.SetBounds(136, 258, 302, 30);
+            _testResult.SetBounds(136, 290, 302, 30);
             _testResult.TextAlign = ContentAlignment.MiddleLeft;
             _testResult.ForeColor = Ui.TextMuted;
             _testResult.BackColor = Ui.Bg;
@@ -149,7 +157,7 @@ namespace OpenCodeUsage
             _clearLink = new LinkLabel();
             _clearLink.Text = "Hapus key tersimpan";
             _clearLink.AutoSize = true;
-            _clearLink.Location = new Point(18, 306);
+            _clearLink.Location = new Point(18, 338);
             _clearLink.LinkColor = Ui.TextDim;
             _clearLink.ActiveLinkColor = Ui.Red;
             _clearLink.VisitedLinkColor = Ui.TextDim;
@@ -160,13 +168,13 @@ namespace OpenCodeUsage
             Controls.Add(_clearLink);
 
             _cancelButton = Ui.Button("Batal", 80);
-            _cancelButton.SetBounds(272, 298, 80, 30);
+            _cancelButton.SetBounds(272, 330, 80, 30);
             _cancelButton.Margin = new Padding(0);
             _cancelButton.Click += delegate { DialogResult = DialogResult.Cancel; Close(); };
             Controls.Add(_cancelButton);
 
             _saveButton = Ui.Button("Simpan", 80);
-            _saveButton.SetBounds(358, 298, 80, 30);
+            _saveButton.SetBounds(358, 330, 80, 30);
             _saveButton.Margin = new Padding(0);
             _saveButton.BackColor = Ui.Blue;
             _saveButton.FlatAppearance.BorderColor = Ui.Blue;
@@ -207,6 +215,7 @@ namespace OpenCodeUsage
             _interval.SelectValue(_cfg.RefreshSeconds);
             _topMost.Checked = _cfg.AlwaysOnTop;
             _autoStart.Checked = AutoStart.IsEnabled();
+            _bubble.Checked = _cfg.BubbleEnabled;
             _testResult.Text = "";
         }
 
@@ -242,6 +251,7 @@ namespace OpenCodeUsage
             _cfg.ApiKey = _keyBox.Text.Trim();
             _cfg.RefreshSeconds = _interval.SelectedValue;
             _cfg.AlwaysOnTop = _topMost.Checked;
+            _cfg.BubbleEnabled = _bubble.Checked;
             _cfg.Save();
 
             if (AutoStart.IsEnabled() != _autoStart.Checked) AutoStart.Set(_autoStart.Checked);
